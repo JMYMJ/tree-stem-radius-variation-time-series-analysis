@@ -7,3 +7,5 @@ output: html_document
 ##README
 
 Repository for the time series analysis of the tree stem radius variation data obtained from the dendrometers deployed in the Lanzhot site, south Czechia.
+Time span is from Dec 2019 to Jun 2025. Frequency is hourly. Data is pre-cleaned in Mini32, the software for downloading the data. 
+
