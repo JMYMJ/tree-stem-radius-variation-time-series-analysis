@@ -96,7 +96,7 @@ cycle(mon.ts)
 
 plot(aggregate(mon.ts, FUN=mean)) 
 # This will agrregate the cycles and display a year-on-year trend
-## The year-on-year trend clearly shows that the growth has been increasing
+## The year-on-year trend shows that the growth has been increasing
 
 boxplot(mon.ts~cycle(mon.ts))
 # boxplot across months will give us a sense on seasonal effect
