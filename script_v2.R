@@ -1,6 +1,6 @@
-install.packages("tidyverse")
 library(tidyverse)
-library(dplyr)library(readr)  #读取csv
+library(dplyr)
+library(readr)
 library(ggplot2) 
 
 # to see what's the directory and all the files within
@@ -16,52 +16,48 @@ data <- read_csv("Lanzhot_oak1_v1.csv")
 summary(data)
 class(data)
 head(data)
-head(data$Time_full,30)
 
+# change column names, doesn't matter what were the original names
+colnames(data) <- c("Time", "Stem_Radius_Fluctuation")
 
-# The midnight hours don't have hour and minute in the original data.
-# to add 00:00 to the end of time data at midnight
-data <- data %>% #pipe operator
-  mutate(Time_full = if_else(nchar(data$Time) <11,
-                              paste0(data$Time, " 0:00"),
-                              data$Time)
-  )
-
-#Convert “Time_full" into POSIXct format
-#Even after mutate "Time" to "Time_full", the midnight hours are still NA.
-data$Time_full <- as.POSIXct(data$Time, format = "%m/%d/%Y %H:%M")
+#Convert “Time" into POSIXct format
+data$Time <- as.POSIXct(data$Time, format = "%m/%d/%Y %H:%M")
 
 # add date column
 data <- data %>% 
-  mutate(date = as.Date(data$Time_full))
+  mutate(date = as.Date(data$Time))
 
 # make new dataframe with date and daily mean
 daily_mean <- aggregate(x=data$Stem_Radius_Fluctuation,
           by=list(data$date),
           FUN=mean)
 
-# there is one NA at the end of the time series (Jun 2025)
-daily_mean <- drop_na(daily_mean)
-
-# change column names, doesn't matter what were the original names
-colnames(daily_mean) <- c("Date", "Stem_Radius_Fluctuation")
-
 # just to check
 summary(daily_mean)
 head(daily_mean)
 
+# there is one NA at the end of the time series (Jun 2025)
+daily_mean <- drop_na(daily_mean)
+
+# change column names
+colnames(daily_mean) <- c("Date", "Stem_Radius_Fluctuation")
+
+
 # make new dataframe with month and monthly mean
-## to avoid the issue about the leap year
+## to avoid the possible problem around the leap year
 monthly_mean <- aggregate(x=data$Stem_Radius_Fluctuation,
                           by=list(month=format(data$date, "%Y-%m")),
                           FUN = mean)
 
 colnames(monthly_mean) <- c("month", "grow_mid_point")
 
+monthly_mean <- drop_na(monthly_mean)
+
 summary(monthly_mean)
 head(monthly_mean)
+
 #---------------------------------------------
-#           II. time series analysis
+#           II. time series data
 #---------------------------------------------
 #make time series based on daily_mean
 ?ts
@@ -87,9 +83,8 @@ summary(mon.ts)
 plot(mon.ts)
 abline(lm(mon.ts~time(mon.ts)), col="red")
 ## lm(y~x, data=my_data) linear reg, x explaining y, 
-### x and y are from my_data
 ## lm(data ~ time(data)),col="red"), data is ts, 
-### y=data, x is extracted with FUN time().
+## y=data, x is extracted with FUN time().
 
 cycle(mon.ts)
 # This will print the cycle across years.
@@ -105,3 +100,30 @@ boxplot(mon.ts~cycle(mon.ts))
 #### May seems to have the highest value, but not much higher 
 ##### than the rest months.
  
+
+#-----------------------------------------------------
+#      III. AR(1) / linear model of ts and tslag1
+#-----------------------------------------------------
+
+# https://online.stat.psu.edu/stat510/Lesson01#exm-timeseriesplot
+# Lesson 1.3
+
+library(astsa)
+#detrend
+detrended_mon.ts <- detrend(mon.ts, 1)
+plot(detrended_mon.ts)
+
+ts <- detrended_mon.ts
+lag1.plot(ts,1) #the graph shows that this linear reg. is good
+
+acf(ts,xlim=c(1,2)) # Plots the ACF of ts for lags 1 to 2
+# instead of 2, numbers including 19,10,5,3 have been tried
+# 2 looks the best for the graph
+
+tslag1=stats::lag(ts,-1) # Creates a lag 1 of x variable.
+y=cbind(ts,tslag1)
+ar1fit=lm(y[,1]~y[,2]) # 用y的第1列作为因变量，y的第2列作为自变量，拟线性回归
+summary(ar1fit)
+plot(ar1fit) # generates 4 graphs!
+plot(ar1fit$fit,ar1fit$residuals)  # plot of residuals versus fits
+acf(ar1fit$residuals, xlim=c(1,18)) # ACF of the residuals for lags 1 to 18
