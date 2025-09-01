@@ -4,12 +4,12 @@ library(tidyverse)
 #library(ggplot2) 
 
 # to see what's the directory and all the files within
-getwd()
-list.files()
+# getwd()
+# list.files()
 data <- read_csv("Lanzhot_oak1_v1.csv")
 
 #---------------------------------------------
-#             I. preparing data
+#             I. prepare the data
 #---------------------------------------------
 
 # data overview
@@ -56,9 +56,9 @@ monthly_mean <- drop_na(monthly_mean)
 summary(monthly_mean)
 head(monthly_mean)
 
-#---------------------------------------------
-#           II. time series data
-#---------------------------------------------
+#-----------------------------------------------
+#           II. visualize the time series
+#-----------------------------------------------
 #make time series based on daily_mean
 ?ts
 #day.ts <- ts(daily_mean$Stem_Radius_Fluctuation,
@@ -102,28 +102,67 @@ boxplot(mon.ts~cycle(mon.ts))
  
 
 #-----------------------------------------------------
-#      III. AR(1) / linear model of ts and tslag1
+#            III. non-seasonal models
+#-----------------------------------------------------
+library(astsa)
+#############################################
+
+# make 1st difference to detrend the upward tendency
+diff_1 <- diff(mon.ts,1)
+plot(diff_1)
+acf2(diff_1)
+# not good
+
+#############################################
+# remove the seasonality
+diff_12 <- diff(mon.ts,12)
+plot(diff_12)
+acf2(diff_12,24)
+## PACF shuts off after lag1, ACF tapers to zero
+## In Lesson4.1/Step2, it says first check for seasonality,
+### if the graphs seems okay, there might be no need for 1st difference 
+#### despite the obvious upward tendency in the origianl series.
+## possible AR(1) model with s=12?
+
+sarima(diff_12,1,0,0)
+# notice: the xmean is the estimated mean of the series based on this model,
+## not the intercept!
+### the estimated model is
+#### (x sub t - 14.2777) = 0.9262 (x sub t-1 - 14.2777) + w sub t
+# Lesson 3.1 
+
+sarima(diff_12,1,0,1) #not bad, acceptable
+
+
+#############################################
+# remove both upward trend and seasonality
+diff_1_12 <- diff(diff_1,12)
+plot(diff_1_12)
+acf2(diff_1_12)
+
+sarima (diff_1_12,1,0,1)
+sarima (diff_1_12,1,0,0)
+#even worse
+
+#-----------------------------------------------------
+#              IV. seasonal models
 #-----------------------------------------------------
 
-# https://online.stat.psu.edu/stat510/Lesson01#exm-timeseriesplot
-# Lesson 1.3
+sarima (mon.ts, 1,0,0,1,1,0,12)
 
-library(astsa)
-#detrend
-detrended_mon.ts <- detrend(mon.ts, 1)
-plot(detrended_mon.ts)
 
-ts <- detrended_mon.ts
-lag1.plot(ts,1) #the graph shows that this linear reg. is good
+# to show more lags on x axis.
+acf2(diff_12, max.lag = 48)
+# maybe AR(2) s=12?!
 
-acf(ts,xlim=c(1,2)) # Plots the ACF of ts for lags 1 to 2
-# instead of 2, numbers including 19,10,5,3 have been tried
-# 2 looks the best for the graph
+acf2(diff_1_12, max.lag = 48) # good_plot
+# not bad, resembles the colorado river example,
+# then try the same model used in that example
+sarima(mon.ts,1,0,0,0,1,1,12)
+# not good
 
-tslag1=stats::lag(ts,-1) # Creates a lag 1 of x variable.
-y=cbind(ts,tslag1)
-ar1fit=lm(y[,1]~y[,2]) # 用y的第1列作为因变量，y的第2列作为自变量，拟线性回归
-summary(ar1fit)
-plot(ar1fit) # generates 4 graphs!
-plot(ar1fit$fit,ar1fit$residuals)  # plot of residuals versus fits
-acf(ar1fit$residuals, xlim=c(1,18)) # ACF of the residuals for lags 1 to 18
+# twitching...
+sarima(mon.ts,0,1,1,1,1,0,12) #best so far
+sarima(mon.ts,0,1,1,2,1,0,12)
+sarima(mon.ts,0,1,0,1,1,1,12) #makes most sense to me according to #good_plot
+
