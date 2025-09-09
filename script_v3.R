@@ -155,7 +155,7 @@ sarima (mon.ts, 1,0,0,1,1,0,12)
 acf2(diff_12, max.lag = 48)
 # maybe AR(2) s=12?!
 
-acf2(diff_1_12, max.lag = 48) # good_plot
+acf2(diff_1_12, max.lag = 48) #good_plot
 # not bad, resembles the colorado river example,
 # then try the same model used in that example
 sarima(mon.ts,1,0,0,0,1,1,12)

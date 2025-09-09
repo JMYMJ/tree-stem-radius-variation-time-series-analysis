@@ -16,6 +16,7 @@ data <- read_csv("Lanzhot_oak1_v1.csv")
 summary(data)
 class(data)
 head(data)
+str(data)
 
 # change column names, doesn't matter what were the original names
 colnames(data) <- c("Time", "dendrometer")
@@ -66,11 +67,11 @@ str(monthly_mean)
 #-----------------------------------------------
 #make time series based on daily_mean
 ?ts
-#day.ts <- ts(daily_mean$Stem_Radius_Fluctuation,
-  #                start=c(2020,1),
-    #              end = c(2024,365),
-     #             frequency=365)
-#plot(day.ts)
+day.ts <- ts(daily_mean$Stem_Radius_Fluctuation,
+                  start=c(2020,1),
+                  end = c(2024,365),
+                  frequency=365)
+plot(day.ts)
 
 #make time series based on monthly_mean
 mon.ts <- ts(monthly_mean$grow_mid_point, 
@@ -106,69 +107,57 @@ boxplot(mon.ts~cycle(mon.ts))
 #### May seems to have the highest value, but not much higher 
 ##### than the rest months.
  
-
 #-----------------------------------------------------
-#            III. non-seasonal models
-#-----------------------------------------------------
-library(astsa)
-#############################################
-
-# make 1st difference to detrend the upward tendency
-diff_1 <- diff(mon.ts,1)
-plot(diff_1)
-acf2(diff_1)
-# not good
-
-#############################################
-# remove the seasonality
-diff_12 <- diff(mon.ts,12)
-plot(diff_12)
-acf2(diff_12,24)
-## PACF shuts off after lag1, ACF tapers to zero
-## In Lesson4.1/Step2, it says first check for seasonality,
-### if the graphs seems okay, there might be no need for 1st difference 
-#### despite the obvious upward tendency in the origianl series.
-## possible AR(1) model with s=12?
-
-sarima(diff_12,1,0,0)
-# notice: the xmean is the estimated mean of the series based on this model,
-## not the intercept!
-### the estimated model is
-#### (x sub t - 14.2777) = 0.9262 (x sub t-1 - 14.2777) + w sub t
-# Lesson 3.1 
-
-sarima(diff_12,1,0,1) #not bad, acceptable
-
-
-#############################################
-# remove both upward trend and seasonality
-diff_1_12 <- diff(diff_1,12)
-plot(diff_1_12)
-acf2(diff_1_12)
-
-sarima (diff_1_12,1,0,1)
-sarima (diff_1_12,1,0,0)
-#even worse
-
-#-----------------------------------------------------
-#              IV. seasonal models
+#            III. auto arima & forecast
 #-----------------------------------------------------
 
-sarima (mon.ts, 1,0,0,1,1,0,12)
+# Load library
+install.packages("forecast")
+library(forecast)
 
+# Example: assume x is your time series object (ts)
+x <- mon.ts
+x <- day.ts
 
-# to show more lags on x axis.
-acf2(diff_12, max.lag = 48)
-# maybe AR(2) s=12?!
+summary(x)
 
-acf2(diff_1_12, max.lag = 48) #good_plot
-# not bad, resembles the colorado river example,
-# then try the same model used in that example
-sarima(mon.ts,1,0,0,0,1,1,12)
-# not good
+# Split into training and test
+n <- length(x) # n = 66
+n
+train_size <- floor(0.8 * n) # train_size = 52
+train_size
 
-# twitching...
-sarima(mon.ts,0,1,1,1,1,0,12) #best so far
-sarima(mon.ts,0,1,1,2,1,0,12)
-sarima(mon.ts,0,1,0,1,1,1,12) #makes most sense to me according to #good_plot
+## train <- window(x, end = c(0, train_size))   # adjust indexing if needed
+## test  <- window(x, start = c(0, train_size + 1))
+
+# time(x)[30] == x[30] # FALSE!!
+
+train <- window(x, end = time(x)[train_size])   
+test  <- window(x, start = time(x)[train_size + 1])
+
+# Fit best ARIMA/SARIMA model
+fit <- auto.arima(train, seasonal = TRUE, 
+                  stepwise = FALSE, approximation = FALSE)
+
+print(fit)
+summary(fit)
+# Forecast horizon = length of test set
+h <- length(test)
+fc <- forecast(fit, h = h)
+
+# Prediction vs actual
+pred <- fc$mean
+
+# Compute errors
+errors <- data.frame(
+  MAE  = mean(abs(pred - test)),
+  RMSE = sqrt(mean((pred - test)^2)),
+  MAPE = mean(abs((pred - test) / test)) * 100
+)
+
+print(fit)
+print(errors)
+
+# Optional: plot forecast vs actual
+autoplot(fc) + autolayer(test, series = "Test")
 
