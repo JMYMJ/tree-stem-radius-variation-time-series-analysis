@@ -1,9 +1,5 @@
 library(tidyverse)
-#library(dplyr)
-#library(readr)
-#library(ggplot2) 
 
-# to see what's the directory and all the files within
 getwd()
 list.files()
 data <- read_csv("Lanzhot_oak.CSV")
@@ -45,8 +41,9 @@ data_all$Time <- as.POSIXct(data_all$Time, format = "%m/%d/%Y %H:%M")
 data_all <- data_all %>% 
   mutate(date = as.Date(data_all$Time))
 
-# make one dataframe for each tree, 
-# containing date and daily average of stem radius fluctuation 
+# make two new dataframes for each tree, 
+# 1st one contains date and daily average of stem radius fluctuation 
+# 2nd one contains month and montly average of stem radius fluctuation 
 day_oak1 <- setNames(
   aggregate(data_all$oak1,
             by=list(data_all$date),
@@ -54,9 +51,15 @@ day_oak1 <- setNames(
   c("Date", "Stem_Radius_Fluctuation")
 )
 
-head(day_oak1)
+mon_oak1 <- setNames(
+  aggregate(day_oak1$Stem_Radius_Fluctuation,
+            by=list(month=format(day_oak1$Date, "%Y-%m")),
+            FUN=mean),
+  c("month", "grow")
+)
 
-# daily mean for oak 2
+
+# daily mean and monthly mean for oak 2
 day_oak2 <- setNames(
   aggregate(data_all$oak2,
             by=list(data_all$date),
@@ -64,9 +67,14 @@ day_oak2 <- setNames(
   c("Date", "Stem_Radius_Fluctuation")
 )
 
-head(day_oak2)
+mon_oak2 <- setNames(
+  aggregate(day_oak2$Stem_Radius_Fluctuation,
+            by=list(month=format(day_oak2$Date, "%Y-%m")),
+            FUN=mean),
+  c("month", "grow")
+)
 
-# daily mean for oak 3
+# daily mean and monthly mean for oak 3
 day_oak3 <- setNames(
   aggregate(data_all$oak3,
             by=list(data_all$date),
@@ -74,10 +82,14 @@ day_oak3 <- setNames(
   c("Date", "Stem_Radius_Fluctuation")
 )
 
-head(day_oak3)
+mon_oak3 <- setNames(
+  aggregate(day_oak3$Stem_Radius_Fluctuation,
+            by=list(month=format(day_oak3$Date, "%Y-%m")),
+            FUN=mean),
+  c("month", "grow")
+)
 
-
-# daily mean for oak 4
+# daily mean and monthly mean for oak 4
 day_oak4 <- setNames(
   aggregate(data_all$oak4,
             by=list(data_all$date),
@@ -85,10 +97,16 @@ day_oak4 <- setNames(
   c("Date", "Stem_Radius_Fluctuation")
 )
 
-head(day_oak4)
+mon_oak4 <- setNames(
+  aggregate(day_oak4$Stem_Radius_Fluctuation,
+            by=list(month=format(day_oak4$Date, "%Y-%m")),
+            FUN=mean),
+  c("month", "grow")
+)
 
 
-# daily mean for oak 5
+
+# daily mean and monthly mean for oak 5
 day_oak5 <- setNames(
   aggregate(data_all$oak5,
             by=list(data_all$date),
@@ -96,20 +114,12 @@ day_oak5 <- setNames(
   c("Date", "Stem_Radius_Fluctuation")
 )
 
-head(day_oak5)
-
-# make new dataframe with month and monthly mean
-monthly_mean <- aggregate(x=data$Stem_Radius_Fluctuation,
-                          by=list(month=format(data$date, "%Y-%m")),
-                          FUN = mean)
-
-colnames(monthly_mean) <- c("month", "grow")
-
-monthly_mean <- drop_na(monthly_mean)
-
-summary(monthly_mean)
-head(monthly_mean)
-str(monthly_mean)
+mon_oak5 <- setNames(
+  aggregate(day_oak5$Stem_Radius_Fluctuation,
+            by=list(month=format(day_oak5$Date, "%Y-%m")),
+            FUN=mean),
+  c("month", "grow")
+)
 
 
 #-----------------------------------------------
@@ -124,7 +134,12 @@ str(monthly_mean)
 #plot(day.ts)
 
 #make time series based on monthly_mean
-mon.ts <- ts(monthly_mean$grow, 
+
+#####   change the 
+#####   number
+#####   after mon_oak
+
+mon.ts <- ts(mon_oak5$grow, 
                  start = c(2019,12), 
                  frequency = 12)
 
@@ -161,7 +176,6 @@ boxplot(mon.ts~cycle(mon.ts))
 #            III. auto arima & forecast
 #-----------------------------------------------------
 
-# Load library
 # install.packages("forecast")
 library(forecast)
 
@@ -170,11 +184,12 @@ x <- mon.ts
 # x <- day.ts
 
 summary(x)
+str(x)
 
 # Split into training and test
-n <- length(x) # n = 66
+n <- length(x) # n = 67
 n
-train_size <- floor(0.8 * n) # train_size = 52
+train_size <- floor(0.8 * n) # train_size = 53
 train_size
 
 ## train <- window(x, end = c(0, train_size))   # adjust indexing if needed
@@ -191,6 +206,7 @@ fit <- auto.arima(train, seasonal = TRUE,
 
 print(fit)
 summary(fit)
+
 # Forecast horizon = length of test set
 h <- length(test)
 fc <- forecast(fit, h = h)
